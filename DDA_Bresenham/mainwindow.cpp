@@ -206,13 +206,19 @@ void MainWindow::on_bresenham_clicked()
     int sy = (y1 < y2) ? 1 : -1;
     int err = dx + dy;
     int e2;
+
+    QPixmap canvas = ui->graph->pixmap();
+    QPainter painter(&canvas);
+    QPen pen= QPen(QColor(40,100,25),go);
+    painter.setPen(pen);
+
     QElapsedTimer timer;
     timer.start();
 
     // Bresenham's line algorithm
     while (true) {
         // Draw the pixel at (x0, y0)
-        colorPoint((x0-1)*go,(y0+0.5)*go,55,70,10,go);
+        painter.drawRect((x0-1)*go,(y0+0.5)*go,go,0);
 
         if (x0 == x2 && y0 == y2) break;
 
@@ -229,6 +235,7 @@ void MainWindow::on_bresenham_clicked()
     qint64 elapsedTime = timer.elapsed(); // Time in milliseconds
 
     // Display the elapsed time on QLCDNumber
+    ui->graph->setPixmap(canvas);
     ui->bresentime->display(QString::number(elapsedTime));
 }
 
