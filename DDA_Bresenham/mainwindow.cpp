@@ -179,7 +179,7 @@ void MainWindow::on_dda_clicked()
         y += yIncrement;
     }
     ui->graph->setPixmap(pixmap);
-    qint64 elapsedTime = timer.elapsed(); // Time in milliseconds
+    qint64 elapsedTime = timer.nsecsElapsed()/1000;
 
     // Display the elapsed time on QLCDNumber
     ui->ddatime->display(QString::number(elapsedTime) );
@@ -232,7 +232,7 @@ void MainWindow::on_bresenham_clicked()
             y0 += sy;
         }
     }
-    qint64 elapsedTime = timer.elapsed(); // Time in milliseconds
+    qint64 elapsedTime = timer.nsecsElapsed()/1000;
 
     // Display the elapsed time on QLCDNumber
     ui->graph->setPixmap(canvas);

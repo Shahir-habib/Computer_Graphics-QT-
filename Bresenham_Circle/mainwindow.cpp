@@ -136,7 +136,7 @@ void MainWindow::on_polarcircle_clicked()
         painter.drawRect((gridX-1) * go, (gridY) * go, go, go);
     }
     ui->graph->setPixmap(pixmap);
-    qint64 elapsedTime = timer.elapsed();
+    qint64 elapsedTime = timer.nsecsElapsed()/1000;
     ui->polartime->display(QString::number(elapsedTime) );
 }
 
@@ -149,7 +149,7 @@ void MainWindow::on_BresenhamCircle_clicked()
     int go = ui->gridoffset->value();
     int x = 0;
     int y = radius;
-    float p = 5/4 - radius;
+    float p = 3 - 2*radius;
     QPixmap canvas = ui->graph->pixmap();
     QPainter painter(&canvas);
     QPen pen= QPen(QColor(100,125,41),go);
@@ -169,14 +169,14 @@ void MainWindow::on_BresenhamCircle_clicked()
         painter.drawRect((centerX - y-1)*go, (centerY - x+0.5)*go,  go,0);
         if(p<0){
             x++;
-            p = p+ 2*x +1;
+            p = p+ 4*x +6;
         }
         else{
             y--;x++;
-            p = p+2*(x-y) +1 -2*y;
+            p = p+4*(x-y) +10;
         }
     }
-    qint64 elapsedTime = timer.elapsed();
+    qint64 elapsedTime = timer.nsecsElapsed()/1000;
     ui->Bcrtime->display(QString::number(elapsedTime) );
     ui->graph->setPixmap(canvas);
 }
