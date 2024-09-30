@@ -28,12 +28,15 @@ private slots:
 
     void on_boundaryfill_clicked();
 
-
     void on_draw_clicked();
 
 private:
     Ui::MainWindow *ui;
     bool eventFilter(QObject *watched, QEvent *event) override;
-    void bresenhamLine(int x1,int y1,int x2,int y2,QPainter & painter);
+    void delay(int ms);
+    void putPoint(QImage &image, int x,int y,QPainter &painter);
+    void floodFill(QImage &image, int x, int y, const QColor &fillColor, const QColor &oldColor,QPainter &painter);
+    void boundaryFill(QImage &image, int x, int y, const QColor &fillColor, const QColor &oldColor,QPainter &painter);
+    void bresenhamLine(int x1, int y1, int x2, int y2, const QColor &color1, const QColor &color2, QPainter &painter);
 };
 #endif // MAINWINDOW_H

@@ -5,10 +5,29 @@
 #include <QColor>
 #include <QTimer>
 #include <QMouseEvent>
-#include <QElapsedTimer>
-#include <QLCDNumber>
 #include <QDebug>
+#include <QColor>
+#include <QVector>
+#include <QThread>
+#define DELAY delay(10)
+QVector<QColor> colorVector {
+    QColor(255, 0, 0),    // Red
+    QColor(0, 255, 0),    // Green
+    QColor(0, 0, 255),    // Blue
+    QColor(255, 255, 0),  // Yellow
+    QColor(255, 0, 255),  // Magenta
+    QColor(0, 255, 255),  // Cyan
+    QColor(192, 192, 192),// Silver
+    QColor(128, 0, 0),    // Maroon
+    QColor(128, 128, 0),  // Olive
+    QColor(0, 128, 128)   // Teal
+};
 
+using namespace std;
+vector< pair<int,int>> vertices;
+vector< pair<int,int>> svertices;
+map<pair<int,int>,bool> m;
+int ymin,ymax;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -20,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent)
     QPixmap canvas = ui->graph->pixmap(Qt::ReturnByValue);
     if (canvas.isNull()) {
         canvas = QPixmap(ui->graph->size());
-        canvas.fill(Qt::white);
+        canvas.fill(QColor(20, 20, 20));
         ui->graph->setPixmap(canvas);
     }
 }
@@ -41,10 +60,10 @@ void MainWindow::on_gridlines_clicked()
     }
 
     QImage gridImage(width, height, QImage::Format_ARGB32);
-    gridImage.fill(Qt::yellow);
+    gridImage.fill(QColor(20, 20, 20));
 
     QPainter painter(&gridImage);
-    painter.setPen(QPen(Qt::green, 1));
+    painter.setPen(QPen(Qt::white, 1));
 
     for (int x = 0; x < width; x += gridOffset) {
         painter.drawLine(x, 0, x, height);
@@ -73,7 +92,7 @@ void MainWindow::on_axis_clicked()
     gridY+=gridOffset/2;
     QPixmap canvas = ui->graph->pixmap();
     QPainter painter(&canvas);
-    QPen pen= QPen(QColor(70,70,255),gridOffset);
+    QPen pen= QPen(QColor(200,200,200),gridOffset);
     painter.setPen(pen);
 
     for(int i=0;i<height;i+=gridOffset){
@@ -82,7 +101,7 @@ void MainWindow::on_axis_clicked()
     for(int i=0;i<width;i+=gridOffset){
         painter.drawRect(i, gridY, gridOffset,0);
     }
-    painter.drawRect(x, y, gridOffset,0);
+
     ui->graph->setPixmap(canvas);
 }
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
@@ -98,103 +117,325 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         gridY+=gridOffset/2;
         ui->x->setText(QString::number(gridX/gridOffset +1));
         ui->y->setText(QString::number(gridY/gridOffset ));
-
+        vertices.push_back({gridX/gridOffset +1,gridY/gridOffset});
         QPixmap canvas = ui->graph->pixmap();
-        QPainter painter(&canvas);
-        QPen pen= QPen(QColor(70,70,255),gridOffset);
+        QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+        QPainter painter(&image);
+        QPen pen;QColor c;
+        if(ui->interpolation->isChecked()){
+            int r = rand() %10;
+            pen= QPen(colorVector[r],gridOffset);
+        }
+        else{
+            pen = QPen(Qt::blue,gridOffset);
+        }
         painter.setPen(pen);
-
         painter.drawRect(gridX, gridY,gridOffset,0);
-        ui->graph->setPixmap(canvas);
+        c = image.pixel((gridX/gridOffset +1 )*gridOffset -1, (gridY/gridOffset)*gridOffset + 1);
+        QPen pen2(c, ui->gridoffset->value());      // Define your pen
+        painter.setPen(pen2);
+        painter.drawRect(0,gridOffset/2,ui->gridoffset->value(),0);
+        ui->graph->setPixmap(QPixmap::fromImage(image));
     }
     return QMainWindow::eventFilter(watched, event);
 }
 
-void MainWindow::on_scanlinefill_clicked()
-{
+bool isInsidePolygon(int x, int y) {
+    // int n = vertices.size();
+    // bool inside = false;
 
+    // for (int i = 0, j = n - 1; i < n; j = i++) {
+    //     if (((vertices[i].second > y) != (vertices[j].second > y)) &&
+    //         (x < (vertices[j].first - vertices[i].first) * (y - vertices[i].second) / (vertices[j].second - vertices[i].second) + vertices[i].first)) {
+    //         inside = !inside;
+    //     }
+    // }
+    // return inside;
+    return true;
 }
+void MainWindow::putPoint(QImage &image, int x,int y,QPainter &painter){
+    int go =ui->gridoffset->value();
+    painter.drawRect((x-1)*go,(y+0.5)*go,go,0);
+    ui->graph->setPixmap(QPixmap::fromImage(image));
+    ui->graph->update();
+    QEventLoop loop;
+    QTimer::singleShot(20,&loop,&QEventLoop::quit);
+    loop.exec();
+}
+void MainWindow::floodFill(QImage &image, int x, int y, const QColor &fillColor, const QColor &oldColor,QPainter &painter) {
+    if (x < 0 || x >= image.width() || y < 0 || y >= image.height()) return; // Out of bounds
+    int go = ui->gridoffset->value();
+    if (image.pixel((x)*go -1, (y)*go + 1) != oldColor.rgb() && image.pixel((x)*go -1, (y)*go + 1) != QColor(200,200,200).rgb())return;
 
+    putPoint(image,x,y,painter);
+    floodFill(image, x + 1, y, fillColor, oldColor,painter ); // Right
+    floodFill(image, x - 1, y, fillColor, oldColor, painter);
+    floodFill(image, x, y + 1, fillColor, oldColor, painter);
+    floodFill(image, x, y - 1, fillColor, oldColor, painter);
+    if(ui->n8->isChecked()){
+        floodFill(image, x + 1, y + 1, fillColor, oldColor,painter );
+        floodFill(image, x - 1, y  + 1, fillColor,oldColor,painter );
+        floodFill(image, x + 1, y - 1, fillColor, oldColor,painter );
+        floodFill(image, x - 1, y - 1, fillColor, oldColor,painter );
+    }
+}
 
 void MainWindow::on_floodfill_clicked()
 {
+    vertices.clear();
+    QPixmap canvas = ui->graph->pixmap();
+    QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+    QPainter painter(&image);
+    int go = ui->gridoffset->value();
+    QColor fillColor = Qt::white;
+    QColor oldColor = QColor(20, 20, 20);
+    QPen pen(fillColor,go);
 
+    int startX = ui->x->toPlainText().toInt();
+    int startY = ui->y->toPlainText().toInt();
+    QPen dummy(oldColor,go);
+    painter.setPen(dummy);
+    painter.drawRect((startX-1)*go,(startY+0.5)*go,go,0);
+    painter.setPen(pen);
+    if (isInsidePolygon(startX, startY)) {
+        // Perform the flood fill operation
+        floodFill(image, startX, startY, fillColor, oldColor,painter);
+    }
+    // Update the pixmap with the modified image
+    ui->graph->setPixmap(QPixmap::fromImage(image));
 }
 
+void MainWindow::boundaryFill(QImage &image, int x, int y, const QColor &fillColor, const QColor &bColor,QPainter &painter){
+    if (x < 0 || x >= image.width() || y < 0 || y >= image.height()) return; // Out of bounds
+    int go = ui->gridoffset->value();
+    if (image.pixel((x)*go -1, (y)*go + 1) == bColor.rgb() || image.pixel((x)*go -1, (y)*go + 1) == fillColor.rgb() )return;
+    putPoint(image,x,y,painter);
+
+    boundaryFill(image, x + 1, y, fillColor, bColor,painter ); // Right
+    boundaryFill(image, x - 1, y, fillColor, bColor,painter ); // Left
+    boundaryFill(image, x, y + 1, fillColor, bColor,painter ); // Down
+    boundaryFill(image, x, y - 1, fillColor, bColor,painter ); // Up
+    if(ui->n8->isChecked()){
+        boundaryFill(image, x + 1, y + 1, fillColor, bColor,painter );
+        boundaryFill(image, x - 1, y  + 1, fillColor, bColor,painter );
+        boundaryFill(image, x + 1, y - 1, fillColor, bColor,painter );
+        boundaryFill(image, x - 1, y - 1, fillColor, bColor,painter );
+    }
+}
 
 void MainWindow::on_boundaryfill_clicked()
 {
+    vertices.clear();
+    QPixmap canvas = ui->graph->pixmap();
+    QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+    QPainter painter(&image);
+    int go = ui->gridoffset->value();
+    QColor fillColor = Qt::white;
+    QColor bColor = QColor(40, 100, 25);
+    QPen pen(fillColor,go);
 
+    int startX = ui->x->toPlainText().toInt();
+    int startY = ui->y->toPlainText().toInt();
+    QColor oldColor = QColor(20,20,20);
+    QPen dummy(oldColor,go);
+    painter.setPen(dummy);
+    painter.drawRect((startX-1)*go,(startY+0.5)*go,go,0);
+    painter.setPen(pen);
+    if (isInsidePolygon(startX, startY)) {
+        // Perform the flood fill operation
+        boundaryFill(image, startX, startY, fillColor, bColor,painter);
+    }
+    // Update the pixmap with the modified image
+    ui->graph->setPixmap(QPixmap::fromImage(image));
 }
 
-
-void MainWindow::bresenhamLine(int x1,int y1,int x2,int y2,QPainter & painter)
-{
-    int go = ui->gridoffset->value();
-    int x0 = x1;
-    int y0 = y1;
-
-    // Calculate deltas and steps
-    int dx = abs(x2 - x1);
-    int dy = -abs(y2 - y1);
-    int sx = (x1 < x2) ? 1 : -1;
-    int sy = (y1 < y2) ? 1 : -1;
-    int err = dx + dy;
-    int e2;
-
-
-    while (true) {
-        painter.drawRect((x0-1)*go,(y0+0.5)*go,go,0);
-
-        if (x0 == x2 && y0 == y2) break;
-
-        e2 = 2 * err;
-        if (e2 >= dy) {
-            err += dy;
-            x0 += sx;
+void initialize(){
+    ymin = INT_MAX;ymax = INT_MIN;
+    for(auto v : svertices){
+        if(ymin > v.second) ymin = v.second;
+        if(ymax < v.second) ymax = v.second;
+    }
+    int n  =svertices.size();
+    for(int i =0;i<n;i++){
+        int y = svertices[i].second;
+        int yp = svertices[(i-1 + n)%n].second;
+        int yn = svertices[(i+1)%n].second;
+        if((y>= yp && y>=yn) || (y<=yp && y<=yn)) {
+            m[svertices[i]] = true;
         }
-        if (e2 <= dx) {
-            err += dx;
-            y0 += sy;
+        else m[svertices[i]]= false;
+    }
+}
+vector<vector<int>> yfill;
+void MainWindow::on_scanlinefill_clicked()
+{
+    initialize();
+    qDebug()<<ymin<<"     "<< ymax;
+    int w = ui->graph->width();
+    int go = ui->gridoffset->value();
+    for(int i=ymin;i<=ymax;i++){
+        vector<int> t;
+        for(int x=1;x*go<w;x++){
+            pair<int,int> p ={x,i};
+            if(m.find(p)!=m.end()){
+                if(!m[p]) t.push_back(x);
+                else {
+                    t.push_back(x);
+                    t.push_back(x);
+                }
+            }
+            else{
+                QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
+                QImage image = canvas.toImage();
+                QColor b= QColor(20, 20, 20);
+                QColor c = image.pixel((x)*go -1, (i)*go + 1);
+                if(c!=b && c != QColor(200,200,200)){
+                    t.push_back(x);
+                }
+            }
+        }
+        yfill.push_back(t);
+    }
+    for(auto x:yfill){
+        for(auto e : x){
+            qDebug()<<e;
+        }
+        qDebug()<<"____________";
+    }
+    QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
+    QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+    QPainter painter(&image);                // Use QPainter with QImage
+    QPen pen(QColor(40, 100, 25), go);      // Define your pen
+    painter.setPen(pen);
+    for(int i=0;i<yfill.size();i++){
+        int y = ymin + i;
+        if(yfill[i].size()==1 )continue;
+        for(int j=0;j< yfill[i].size();){
+            // Obtain colors at the endpoints from the image
+            if(j==yfill[i].size()-1) break;
+            int x1= yfill[i][j],x2=yfill[i][j+1];
+            if(x2-x1==1){j++;continue;}
+            else{
+                j+=2;
+            }
+            QColor c1 = image.pixel((x1)*go -1, (y)*go + 1);
+            QColor c2 = image.pixel((x2)*go -1 , (y)*go + 1);
+            bresenhamLine(x1, y, x2, y, c1, c2, painter);
+            ui->graph->setPixmap(QPixmap::fromImage(image));
+            ui->graph->update();
+            QEventLoop loop;
+            QTimer::singleShot(90,&loop,&QEventLoop::quit);
+            loop.exec();
         }
     }
+    ui->graph->setPixmap(QPixmap::fromImage(image));
+    svertices.clear();
+}
 
+void MainWindow::bresenhamLine(int x1, int y1, int x2, int y2, const QColor &color1, const QColor &color2, QPainter &painter) {
+    int go = ui->gridoffset->value();
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int steps =  max(dx, dy);
+
+    // Color interpolation
+    float rStep = static_cast<float>(color2.red() - color1.red()) / steps;
+    float gStep = static_cast<float>(color2.green() - color1.green()) / steps;
+    float bStep = static_cast<float>(color2.blue() - color1.blue()) / steps;
+
+    // Initialize the current color
+    float r = color1.red();
+    float g = color1.green();
+    float b = color1.blue();
+
+    // Calculate direction
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+
+    for (int i = 0; i < steps; ++i) {
+        // Set the pen color
+        QColor currentColor(static_cast<int>(r), static_cast<int>(g), static_cast<int>(b));
+        QPen pen(currentColor, go); // Define your pen
+        if(ui->interpolation->isChecked())
+            painter.setPen(pen);
+
+        // Draw the pixel
+        painter.drawRect((x1 - 1) * go, (y1 + 0.5) * go, go, 0);
+
+        // Update the current color for the next step
+        r += rStep;
+        g += gStep;
+        b += bStep;
+
+        // Bresenham's line algorithm
+        if (2 * err > -dy) {
+            err -= dy;
+            x1 += sx;
+        }
+        if (2 * err < dx) {
+            err += dx;
+            y1 += sy;
+        }
+    }
 }
 
 void MainWindow::on_draw_clicked()
 {
     int sides = ui->n->value();
-    if (sides < 3) return;
     int go = ui->gridoffset->value();
-    int height = ui->graph->height();
-    std::vector<std::pair<int,int>> vertices;
-    // int s = 2*sides;
-    int xc=ui->x->toPlainText().toInt(),yc=ui->y->toPlainText().toInt();
-    // double radius = s/(2*(sin(M_PI/sides)));
-    double angleStep = 2 * M_PI / sides;
+    if (sides > 3){
+        int height = ui->graph->height();
+        vector< pair<int,int>> vertices;
+        int xc=ui->x->toPlainText().toInt(),yc=ui->y->toPlainText().toInt();
+        // double radius = s/(2*(sin(M_PI/sides)));
+        double angleStep = 2 * M_PI / sides;
 
-    double radius =  height/ (5.0 * go);
-    double s = 2 * radius * std::sin(M_PI / sides);
+        double radius =  height/ (5.0 * go);
 
 
-    for (int i = 0; i < sides; ++i) {
-        double angle = i * angleStep;
-        int x = static_cast<int>(xc + radius * std::cos(angle));
-        int y = static_cast<int>(yc + radius * std::sin(angle));
-        vertices.push_back({x,y});
+        for (int i = 0; i < sides; ++i) {
+            double angle = i * angleStep;
+            int x = static_cast<int>(xc + radius *  cos(angle));
+            int y = static_cast<int>(yc + radius * sin(angle));
+            vertices.push_back({x,y});
+        }
+        QPixmap canvas = ui->graph->pixmap();
+        QPainter painter(&canvas);
+        QPen pen= QPen(QColor(40,100,25),go);
+        painter.setPen(pen);
+
+
+        // Draw edges
+        for (int i = 0; i < sides; ++i) {
+            int x1 = vertices[i].first, y1 = vertices[i].second;
+            int x2 = vertices[(i + 1) % sides].first,y2 = vertices[(i + 1) % sides].second; // Wrap around to the first vertex
+            bresenhamLine(x1,y1,x2,y2, Qt::blue,Qt::blue,painter);
+        }
+        ui->graph->setPixmap(canvas);
     }
-    QPixmap canvas = ui->graph->pixmap();
-    QPainter painter(&canvas);
-    QPen pen= QPen(QColor(40,100,25),go);
-    painter.setPen(pen);
+    else{   //Draw Manually
+        QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
+        QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+        QPainter painter(&image);                // Use QPainter with QImage
+        QPen pen(QColor(40, 100, 25), go);      // Define your pen
+        painter.setPen(pen);
+        int n = vertices.size();
 
+        // Draw edges
+        for (int i = 0; i < n; ++i) {
+            int x1 = vertices[i].first, y1 = vertices[i].second;
+            int x2 = vertices[(i + 1) % n].first, y2 = vertices[(i + 1) % n].second; // Wrap around to the first vertex
 
-    // Draw edges
-    for (int i = 0; i < sides; ++i) {
-        int x1 = vertices[i].first, y1 = vertices[i].second;
-        int x2 = vertices[(i + 1) % sides].first,y2 = vertices[(i + 1) % sides].second; // Wrap around to the first vertex
-        bresenhamLine(x1,y1,x2,y2, painter);
+            // Obtain colors at the endpoints from the image
+            QColor c1 = image.pixel((x1)*go -1, (y1)*go + 1);
+            QColor c2 = image.pixel((x2)*go -1 , (y2)*go + 1);
+            bresenhamLine(x1, y1, x2, y2, c1, c2, painter);
+        }
+        painter.end();  // End the painter
+        ui->graph->setPixmap(QPixmap::fromImage(image));  // Set the modified image back to the pixmap
     }
-    ui->graph->setPixmap(canvas);
+    svertices= vertices;
+    vertices.clear();
 }
 

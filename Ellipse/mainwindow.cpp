@@ -50,7 +50,7 @@ void MainWindow::on_gridlines_clicked()
     }
 
     QImage gridImage(width, height, QImage::Format_ARGB32);
-    gridImage.fill(Qt::yellow);
+    gridImage.fill(Qt::white);
 
     QPainter painter(&gridImage);
     painter.setPen(QPen(Qt::green, 1));
@@ -132,10 +132,10 @@ void MainWindow::on_polarellipse_clicked()
         int y = static_cast<int>(yr * std::sin(th));
 
         // Plot the points
-        painter.drawRect((xc + x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc + x)*go, (yc - y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc - y)*go,go,go);
 
         th += dth;
     }
@@ -168,10 +168,10 @@ void MainWindow::on_bresenhamellipse_clicked()
     QElapsedTimer timer;
     timer.start();
 
-    painter.drawRect((xc + x)*go, (yc + y)*go,go,go);
-    painter.drawRect((xc - x)*go, (yc + y)*go,go,go);
-    painter.drawRect((xc + x)*go, (yc - y)*go,go,go);
-    painter.drawRect((xc - x)*go, (yc - y)*go,go,go);
+    painter.drawRect((xc + x  - 1)*go, (yc + y)*go,go,go);
+    painter.drawRect((xc - x  - 1)*go, (yc + y)*go,go,go);
+    painter.drawRect((xc + x  - 1)*go, (yc - y)*go,go,go);
+    painter.drawRect((xc - x  - 1)*go, (yc - y)*go,go,go);
 
     // Region 1
     while (dx < dy) {
@@ -184,10 +184,10 @@ void MainWindow::on_bresenhamellipse_clicked()
             dy -= 2 * xr * xr;
             d1 += dx - dy + (yr * yr);
         }
-        painter.drawRect((xc + x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc + x)*go, (yc - y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc - y)*go,go,go);
     }
 
     // Region 2
@@ -202,10 +202,10 @@ void MainWindow::on_bresenhamellipse_clicked()
             dx += 2 * yr * yr;
             d2 += dx - dy + (xr * xr);
         }
-        painter.drawRect((xc + x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc + y)*go,go,go);
-        painter.drawRect((xc + x)*go, (yc - y)*go,go,go);
-        painter.drawRect((xc - x)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc + y)*go,go,go);
+        painter.drawRect((xc + x - 1)*go, (yc - y)*go,go,go);
+        painter.drawRect((xc - x - 1)*go, (yc - y)*go,go,go);
     }
     ui->graph->setPixmap(pixmap);
     qint64 elapsedTime = timer.nsecsElapsed()/1000;
