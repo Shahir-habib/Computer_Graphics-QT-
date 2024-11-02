@@ -9,6 +9,7 @@
 #include <QColor>
 #include <QVector>
 #include <QThread>
+#include <algorithm>
 #define DELAY delay(10)
 QVector<QColor> colorVector {
     QColor(255, 0, 0),    // Red
@@ -248,7 +249,7 @@ void MainWindow::on_boundaryfill_clicked()
     // Update the pixmap with the modified image
     ui->graph->setPixmap(QPixmap::fromImage(image));
 }
-
+/*
 void initialize(){
     ymin = INT_MAX;ymax = INT_MIN;
     for(auto v : svertices){
@@ -326,6 +327,113 @@ void MainWindow::on_scanlinefill_clicked()
             QEventLoop loop;
             QTimer::singleShot(90,&loop,&QEventLoop::quit);
             loop.exec();
+        }
+    }
+    ui->graph->setPixmap(QPixmap::fromImage(image));
+    svertices.clear();
+}
+//This Code fail for some concave polygons but perfect for convex .
+*/
+
+struct Edge {
+    int ymax;   // Maximum y-coordinate of the edge
+    float xmin;  // Minimum x-coordinate where scanline intersects edge
+    float slopeinverse;  // 1/slope of the edge
+
+    Edge(int ymax, float xmin, float slopeinverse)
+        : ymax(ymax), xmin(xmin), slopeinverse(slopeinverse) {}
+};
+void MainWindow::on_scanlinefill_clicked(){
+
+    vector< pair<int,int>> vertices = svertices;
+    int go = ui->gridoffset->value();
+    int ymin = vertices[0].second;
+    int ymax = vertices[0].second;
+    for (const auto& vertex : vertices) {
+        ymin = min(ymin, vertex.second);
+        ymax = max(ymax, vertex.second);
+    }
+    QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
+    QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+    QPainter painter(&image);                // Use QPainter with QImage
+    QPen pen(QColor(40, 100, 25), go);      // Define your pen
+    painter.setPen(pen);
+    QColor cl = QColor(40,100,25),bl = QColor(20,20,20);
+    // Initialize edge table
+    vector<list<Edge>> edgeTable(ymax + 1);
+
+    // Build edge table
+    for (size_t i = 0; i < vertices.size(); i++) {
+        // Get current vertex and next vertex
+        int x1 = vertices[i].first;
+        int y1 = vertices[i].second;
+        int x2 = vertices[(i + 1) % vertices.size()].first;
+        int y2 = vertices[(i + 1) % vertices.size()].second;
+
+        // Skip horizontal edges
+        if (y1 == y2) continue;
+
+        // Ensure y1 < y2
+        if (y1 > y2) {
+            swap(x1, x2);
+            swap(y1, y2);
+        }
+
+        // Calculate inverse slope
+        float slopeinverse = float(x2 - x1) / (y2 - y1);
+
+        // Create and add edge to edge table
+        Edge edge(y2, x1, slopeinverse);
+        edgeTable[y1].push_back(edge);
+    }
+
+    // Active Edge Table (AET) - initially empty
+    list<Edge> activeEdges;
+
+    // Process each scanline
+    for (int y = ymin; y <= ymax; y++) {
+        // Remove edges from AET where ymax = y
+        activeEdges.remove_if([y](const Edge& edge) {
+            return edge.ymax == y;
+        });
+
+        // Move edges from edge table to AET
+        activeEdges.splice(activeEdges.end(), edgeTable[y]);
+
+        // Sort AET by xmin
+        activeEdges.sort([](const Edge& e1, const Edge& e2) {
+            return e1.xmin < e2.xmin;
+        });
+
+        // Fill pixels between pairs of intersections
+        auto it = activeEdges.begin();
+        while (it != activeEdges.end()) {
+            // Get first x-coordinate
+            float x1 = it->xmin;
+            ++it;
+            if (it == activeEdges.end()) break;
+
+            // Get second x-coordinate
+            float x2 = it->xmin;
+            ++it;
+            QColor c1 = image.pixel((int(x1))*go -1, (y)*go + 1);
+            QColor c2 = image.pixel((int(x2))*go -1 , (y)*go + 1);
+            if(c1==bl){
+                if(bl!=image.pixel((int(x1) + 1)*go -1, (y)*go + 1)) c1 = image.pixel((int(x1) + 1)*go -1, (y)*go + 1);
+                else c1 = image.pixel((int(x1) - 1)*go -1, (y)*go + 1);
+            }
+
+            if(c2==bl){
+                if(bl!=image.pixel((int(x2) + 1)*go -1, (y)*go + 1)) c2 = image.pixel((int(x2) + 1)*go -1, (y)*go + 1);
+                else c2 = image.pixel((int(x2) - 1)*go -1, (y)*go + 1);
+            }
+            bresenhamLine(int(x1),y,int(x2) + 1,y,c1,c2,painter);
+            qDebug() << " from "<< int(x1) << "to" << int(x2) << "on" << y;
+        }
+
+        // Update xmin values for active edges
+        for (auto& edge : activeEdges) {
+            edge.xmin += edge.slopeinverse;
         }
     }
     ui->graph->setPixmap(QPixmap::fromImage(image));

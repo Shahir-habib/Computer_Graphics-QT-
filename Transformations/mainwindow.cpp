@@ -159,7 +159,7 @@ void initializematrix(){
     xc.clear();
     for(auto v : cvertices){
         xc.push_back(1);
-        qDebug()<< v.first << v.second ;
+        //qDebug()<< v.first << v.second ;
     }
     vmat.push_back(xc);
     xc.clear();
@@ -331,16 +331,17 @@ void MainWindow::on_translate_clicked()
 
 void MainWindow::on_rotate_clicked()
 {
-    vector<vector<double>> rotatemat;
     double theta = 1.0 * ui->angle->value() ;
-    rotatemat.push_back({cos(theta),-1 *sin(theta),0});
-    rotatemat.push_back({sin(theta),cos(theta),0});
-    rotatemat.push_back({0,0,1});
+
     initializematrix();
-    // vector<vector<int>> r = multiplyMatrices(rotatemat,vmat);
-    // for(int i=0;i < r[0].size();i++){
-    //     nvertices.push_back({r[0][i],r[1][i]});
-    // }
+    for(int i=0;i < vmat[0].size();i++){
+        int x = vmat[0][i],y =vmat[1][i];
+        float xn,yn;
+        xn = (x * cos(theta) - y * sin(theta));
+        yn = (x * sin(theta) + y * cos(theta));
+        nvertices.push_back({int(xn),int(yn)});
+        qDebug() << xn << yn ;
+    }
     int go =ui->gridoffset->value();
     QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
     QImage image = canvas.toImage();        // Convert it to QImage for pixel access
@@ -372,8 +373,8 @@ void MainWindow::on_rotate_clicked()
 void MainWindow::on_shear_clicked()
 {
     vector<vector<int>> shearmat;
-    shearmat.push_back({1,ui->sx->value(),0});
-    shearmat.push_back({ui->sy->value(),1,0});
+    shearmat.push_back({1,ui->hx->value(),0});
+    shearmat.push_back({ui->hy->value(),1,0});
     shearmat.push_back({0,0,1});
     initializematrix();
     vector<vector<int>> r = multiplyMatrices(shearmat,vmat);
