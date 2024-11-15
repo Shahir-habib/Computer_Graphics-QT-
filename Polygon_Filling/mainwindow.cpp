@@ -134,8 +134,6 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         painter.drawRect(gridX, gridY,gridOffset,0);
         c = image.pixel((gridX/gridOffset +1 )*gridOffset -1, (gridY/gridOffset)*gridOffset + 1);
         QPen pen2(c, ui->gridoffset->value());      // Define your pen
-        painter.setPen(pen2);
-        painter.drawRect(0,gridOffset/2,ui->gridoffset->value(),0);
         ui->graph->setPixmap(QPixmap::fromImage(image));
     }
     return QMainWindow::eventFilter(watched, event);

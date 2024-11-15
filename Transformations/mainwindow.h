@@ -34,6 +34,8 @@ private slots:
 
     void on_reflet_clicked();
 
+    void on_reflet_line_clicked();
+
 private:
     Ui::MainWindow *ui;
     bool eventFilter(QObject *watched, QEvent *event) override;

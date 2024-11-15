@@ -138,8 +138,6 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         painter.drawRect(gridX, gridY,gridOffset,0);
         c = image.pixel((gridX/gridOffset +1 )*gridOffset -1, (gridY/gridOffset)*gridOffset + 1);
         QPen pen2(c, ui->gridoffset->value());      // Define your pen
-        painter.setPen(pen2);
-        painter.drawRect(0,gridOffset/2,ui->gridoffset->value(),0);
         ui->graph->setPixmap(QPixmap::fromImage(image));
     }
     return QMainWindow::eventFilter(watched, event);
@@ -332,13 +330,13 @@ void MainWindow::on_translate_clicked()
 void MainWindow::on_rotate_clicked()
 {
     double theta = 1.0 * ui->angle->value() ;
-
+    double radian = theta * (M_PI / 180);
     initializematrix();
     for(int i=0;i < vmat[0].size();i++){
         int x = vmat[0][i],y =vmat[1][i];
         float xn,yn;
-        xn = (x * cos(theta) - y * sin(theta));
-        yn = (x * sin(theta) + y * cos(theta));
+        xn = round(x * cos(radian) - y * sin(radian));
+        yn = round(x * sin(radian) + y * cos(radian));
         nvertices.push_back({int(xn),int(yn)});
         qDebug() << xn << yn ;
     }
@@ -518,5 +516,57 @@ void MainWindow::on_reflet_clicked()
         cvertices = nvertices;
         nvertices.clear();
     }
+}
+
+
+void MainWindow::on_reflet_line_clicked()
+{
+    int m = ui->m->value();
+    int c = ui->c->value();
+    double d ;
+    initializematrix();
+    for(int i=0;i < vmat[0].size();i++){
+        int x = vmat[0][i],y =vmat[1][i];
+        float xn,yn;
+        d = (x +(y-c)*m)/(1+pow(m,2));
+        xn = 2*d - x;
+        yn = 2*d*m - y + 2*c;
+        nvertices.push_back({int(xn),int(yn)});
+        qDebug() << xn << yn ;
+    }
+    int go =ui->gridoffset->value();
+    QPixmap canvas = ui->graph->pixmap();  // Get the current pixmap
+    QImage image = canvas.toImage();        // Convert it to QImage for pixel access
+    QPainter painter(&image);                // Use QPainter with QImage
+    QPen pen(QColor(40, 100, 25), go);      // Define your pen
+    painter.setPen(pen);
+    int n = nvertices.size();
+
+    // Draw edges
+    for (int i = 0; i < n; ++i) {
+        int x1 = nvertices[i].first, y1 = nvertices[i].second;
+        int x2 = nvertices[(i + 1) % n].first, y2 = nvertices[(i + 1) % n].second; // Wrap around to the first vertex
+
+        // Obtain colors at the endpoints from the image
+        int xp1 = vertices[i].first, yp1 = vertices[i].second;
+        int xp2 = vertices[(i + 1) % n].first, yp2 = vertices[(i + 1) % n].second;
+        QColor c1 = image.pixel((xp1 + (centerX/go +1))*go -1 ,   (yp1 - (centerY/go))*go*-1 + 1);
+        QColor c2 = image.pixel((xp2 + (centerX/go +1))*go -1 ,   (yp2 - (centerY/go))*go*-1 + 1);
+        if(false);// antialiasedLine(x1,y1,x2,y2,painter,image);
+        else bresenhamLine(x1, y1, x2, y2, c1, c2, painter);
+    }
+    //Draw line
+    int xl1= 0,yl1= c;
+    int xl2=ui->graph->width()/go*2-2;
+    int yl2 = round(c + m*xl2);
+    bresenhamLine(xl1, yl1, xl2, yl2, Qt:: blue, Qt::red, painter);
+    yl2 *= -1;
+    xl2 = ((yl2 - c)/m);
+    bresenhamLine(xl1, yl1, xl2, yl2, Qt:: blue, Qt::red, painter);
+    painter.end();  // End the painter
+    ui->graph->setPixmap(QPixmap::fromImage(image));
+    cvertices = nvertices;
+    nvertices.clear();
+
 }
 
